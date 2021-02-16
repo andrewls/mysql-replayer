@@ -1,0 +1,18 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# This script is designed to allow you to replay a MySQL log file against a
+# new mysql URL. It was designed to have three distinct stages of operation
+#
+# 1 - The "Pre-Test" time. Queries in the logs from during this window will only
+#     be run if they are insert, update, or delete queries. The only purpose of
+#     this mode is to be able to keep the DB up to date so that it's accurate
+# 2 - The "Actual Test" window time, in which this script _exactly_ replays the
+#     same queries (including SELECTs) that were originally run in the logs.
+# 3 - The "Post Test" time, in which all queries are skipped, because honestly
+#     we don't care what happened at this point.
+#
+# The test uses the MySQL protocol to communicate, so it can access any database
+# that is capable of communicating over the MySQL protocol. It is therefore
+# able to communicate with any database that speaks MySQL, including Amazon's
+# Aurora DB.
