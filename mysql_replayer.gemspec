@@ -8,17 +8,17 @@ Gem::Specification.new do |spec|
   spec.authors       = ["Andrew Stephenson"]
   spec.email         = ["Andrew.Stephenson123@gmail.com"]
 
-  spec.summary       = "TODO: Write a short summary, because RubyGems requires one."
-  spec.description   = "TODO: Write a longer description or delete this line."
-  spec.homepage      = "TODO: Put your gem's website or public repo URL here."
+  spec.summary       = "MySQL Query Log Replayer"
+  spec.description   = "Given a MySQL query log, replay the queries in it against another DB."
+  spec.homepage      = "https://github.com/andrewls/mysql-replayer"
   spec.license       = "MIT"
   spec.required_ruby_version = Gem::Requirement.new(">= 2.3.0")
 
-  spec.metadata["allowed_push_host"] = "TODO: Set to 'http://mygemserver.com'"
+  # spec.metadata["allowed_push_host"] = "TODO: Set to 'http://mygemserver.com'"
 
   spec.metadata["homepage_uri"] = spec.homepage
-  spec.metadata["source_code_uri"] = "TODO: Put your gem's public repo URL here."
-  spec.metadata["changelog_uri"] = "TODO: Put your gem's CHANGELOG.md URL here."
+  spec.metadata["source_code_uri"] = "https://github.com/andrewls/mysql-replayer"
+  spec.metadata["changelog_uri"] = "https://github.com/andrewls/mysql-replayer/blob/main/changelog.md"
 
   # Specify which files should be added to the gem when it is released.
   # The `git ls-files -z` loads the files in the RubyGem that have been added into git.
@@ -30,6 +30,12 @@ Gem::Specification.new do |spec|
   spec.require_paths = ["lib"]
 
   spec.add_development_dependency 'pry'
+
+  spec.add_dependency 'activesupport'
+  spec.add_dependency 'fast_blank'
+  spec.add_dependency 'mysql2'
+  spec.add_dependency 'colorize'
+  spec.add_dependency 'oj'
 
   # Uncomment to register a new dependency of your gem
   # spec.add_dependency "example-gem", "~> 1.0"

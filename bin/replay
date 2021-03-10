@@ -16,3 +16,101 @@
 # that is capable of communicating over the MySQL protocol. It is therefore
 # able to communicate with any database that speaks MySQL, including Amazon's
 # Aurora DB.
+require 'bundler/setup'
+require 'mysql_replayer'
+require 'active_support/core_ext/integer/time'
+require 'optparse'
+require 'optparse/time'
+require 'active_support/core_ext/object/blank'
+require 'fast_blank'
+
+# Parse the command line arguments out
+
+class Parser
+  def self.parse(options)
+    parsed_args = {}
+    opt_parser = OptionParser.new do |opts|
+      opts.banner = +"Usage: replay -f FILE -s START_TIME -e END_TIME\n"
+      opts.banner << <<-DOCS
+
+        This script will take a mysql query log from one database  and "replay"
+        it against a second database. Since it uses the mysql protocol, any
+        database that also uses the mysql protocol (for example, Amazon's Aurora)
+        can also be used.
+
+        Given a log file to replay (required), a start time, and an end time,
+        the database will run all queries from the log file that occurred
+        between the start time and the end time. If you don't specify a start
+        time, the beginning of the epoch will be used. If you don't specify an
+        end time, the current time will be used.
+
+        There are 3 phases in the replay run.
+        1. The "pre-test" time window, when the replayer has not yet come to any
+           log entries that are within the specified time window. During this phase,
+           the replayer DOES run any UPDATE, INSERT, or DELETE queries it comes
+           accross, as well as any changes to structure of the database. Basically,
+           it just ignores SELECTs and assumes that any of the changes being made
+           at this point do need to be made to the DB you want to replay against.
+           You should therefore start your mysql log input file at the moment you
+           wish to start running queries from.
+        2. The "test" window, during which the replayer will run ALL queries
+           from the supplied log window, including SELECT queries. This phase of
+           execution is intended to be used for load testing a DB to see how it
+           will perform under similar load to an existing DB.
+        3. The "post-test" window. During this phase, the replayer skips
+           absolutely everything. The option of having an "end" to your test
+           window is given as a convenient means to not have to truncate your log
+           file before using it as input to this script.
+
+        The specific command line options for this script are supplied below.
+
+      DOCS
+
+      opts.on('-f', '--file FILE', 'MySQL log file to replay') do |f|
+        parsed_args[:file] = f
+      end
+
+      opts.on('-s', '--start START', Time, 'The time (iso8601) to start the test window at') do |s|
+        parsed_args[:start] = s
+      end
+
+      opts.on('-e', '--end END', Time, 'The time (iso8601) to end the test window at') do |e|
+        parsed_args[:end] = e
+      end
+
+      opts.on('-d', '--database DB_URL', 'A fully qualified URL of a mysql database to replay the log against') do |db|
+        parsed_args[:db_url] = db
+      end
+
+      opts.on("-h", "--help", "Prints this help") do
+        puts opts
+        exit
+      end
+    end
+
+    opt_parser.parse!(options)
+    return parsed_args
+  end
+end
+
+args = Parser.parse ARGV
+puts("Missing required argument 'file'!") or puts(Parser.parse %w[--help]) or exit if args[:file].blank?
+puts("Missing required argument 'database'!") or puts(Parser.parse(%w[--help])) or exit if args[:db_url].blank?
+
+args[:start] ||= Time.at(0)
+args[:end] ||= Time.current
+
+# Check if the file exists
+raise "The log file you supplied (#{args[:file]}) does not exist!" unless File.exist?(args[:file])
+
+print "You are about to replay log file #{args[:file]} from #{args[:start].iso8601} to #{args[:end].iso8601} against the database at #{args[:db_url]}. Proceed? (y/n) "
+# puts('Aborting') or exit unless STDIN.gets.chomp.downcase.include?('y')
+
+puts "Launching replayer..."
+
+MysqlReplayer::Executor.new(
+  file: args[:file],
+  database_url: args[:db_url],
+  start_time: args[:start],
+  end_time: args[:end]
+).replay

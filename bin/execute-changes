@@ -1,0 +1,55 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# This script exists solely to execute existing change files.
+# Because I'm lazy, I will be largely implementing these changes one at a time.
+require 'json'
+require 'active_support/core_ext/object/blank'
+require 'fast_blank'
+
+# First, add support for reading the command line arguments
+CHANGES_FILE = ARGV[0]
+SOURCE_FILE = ARGV[1]
+DESTINATION_FILE = "#{SOURCE_FILE}.modified.txt"
+
+# Next, parse the actual changes to be made.
+# I'm making the assumption that this file will be relatively small, as they
+# all have been thus far.
+changes = JSON.parse(File.read(CHANGES_FILE)).sort_by { |c| c['line_number'] }
+next_change = changes.shift
+altering = false
+
+def handle_altering_line(change, line, line_number, destination)
+  case change['proposed_action']
+  when 'merge' then nil
+  when 'edit' then destination.write(change['new_text']) if line_number == change['line_number']
+  when 'delete' then nil # Deleting requires no actions
+  end
+end
+
+line_number = 0
+File.open(DESTINATION_FILE, 'w') do |destination|
+  File.foreach(SOURCE_FILE) do |line|
+    line_number += 1
+    print "\rProcessing line #{line_number}\t\t\t"
+    # Check to see if this line number is involved in the next change
+    if next_change && line_number == next_change['line_number']
+      altering = true
+      handle_altering_line(next_change, line, line_number, destination)
+    elsif altering
+      if line_number == next_change['original_end_line']
+        altering = false
+        next_change = changes.shift
+        destination.write(line)
+        # This will definitely break if we ever have two lines in a row
+        # that are wrong
+      else
+        handle_altering_line(next_change, line, line_number, destination)
+      end
+    else
+      destination.write(line)
+    end
+  end
+end
+puts ""
+puts "Completed changes for file #{CHANGES_FILE}!"
