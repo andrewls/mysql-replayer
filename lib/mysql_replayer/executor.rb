@@ -21,14 +21,15 @@ module MysqlReplayer
   PEAK = 1
   POST_PEAK = 2
   MUTATING_OPERATIONS = %w[prepare create call update insert delete].to_set.freeze
-  MYSQL_THREADS = 50
+  MYSQL_THREADS = 200
 
   class Executor
-    def initialize(file:, database_url:, start_time: Time.at(0), end_time:Time.current)
+    def initialize(file:, database_url:, start_time: Time.at(0), end_time:Time.current, skip_to: nil)
       @file = file
       @database_url = database_url
       @start_time = start_time
       @end_time = end_time
+      @skip_to = skip_to
       @phase = PRE_PEAK
       @threads = []
       @db_mutex = Mutex.new
@@ -185,6 +186,11 @@ module MysqlReplayer
       QueryLogParser.parse(@file) do |entry|
         index += 1
         @current_phase_first_timestamp = @replay_first_timestamp = entry.hi_res_timestamp if index == 1
+        # skip this entry if there's a skip_to and it's greater than this query
+        puts "Trying entry #{index}" if index % 10_000 == 0
+        next if @skip_to && @skip_to > entry.timestamp
+        puts "Past entry (#{index})" if index % 10_000 == 0
+
         case @phase
         when PRE_PEAK then (@current_phase_started_at = @peak_started_at = Time.current) && (@current_phase_first_timestamp = @peak_first_timestamp = entry.hi_res_timestamp) && (@phase = PEAK) if entry.timestamp > @start_time
         when PEAK then @phase = POST_PEAK if entry.timestamp > @end_time

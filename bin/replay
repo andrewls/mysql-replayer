@@ -82,6 +82,10 @@ class Parser
         parsed_args[:db_url] = db
       end
 
+      opts.on('-j', '--jump SKIPTO', Time, 'Skips over all queries until the given timestamp. Used for resuming a previously killed replay') do |skip_to|
+        parsed_args[:skip_to] = skip_to
+      end
+
       opts.on("-h", "--help", "Prints this help") do
         puts opts
         exit
@@ -112,5 +116,6 @@ MysqlReplayer::Executor.new(
   file: args[:file],
   database_url: args[:db_url],
   start_time: args[:start],
-  end_time: args[:end]
+  end_time: args[:end],
+  skip_to: args[:skip_to]
 ).replay
