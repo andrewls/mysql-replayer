@@ -151,6 +151,7 @@ module MysqlReplayer
     end
 
     def handle_entry(entry)
+      return if entry.command == 'Quit'
       case @phase
       when PRE_PEAK
         # In this case we only need to worry about operations that might impact
