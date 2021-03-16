@@ -187,9 +187,7 @@ module MysqlReplayer
         index += 1
         @current_phase_first_timestamp = @replay_first_timestamp = entry.hi_res_timestamp if index == 1
         # skip this entry if there's a skip_to and it's greater than this query
-        puts "Trying entry #{index}" if index % 10_000 == 0
         next if @skip_to && @skip_to > entry.timestamp
-        puts "Past entry (#{index})" if index % 10_000 == 0
 
         case @phase
         when PRE_PEAK then (@current_phase_started_at = @peak_started_at = Time.current) && (@current_phase_first_timestamp = @peak_first_timestamp = entry.hi_res_timestamp) && (@phase = PEAK) if entry.timestamp > @start_time
