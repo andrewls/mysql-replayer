@@ -21,7 +21,7 @@ module MysqlReplayer
     end
 
     def complete?
-      @timestamp.present? && @hi_res_timestamp.present? && @thread_id.present? && @command.present? && @argument.present?
+      @timestamp.present? && @hi_res_timestamp.present? && @thread_id.present? && @command.present? && (@argument.present? || @command == 'Quit')
     end
   end
 end
