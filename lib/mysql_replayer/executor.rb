@@ -207,8 +207,6 @@ module MysqlReplayer
     def replay
       @current_phase_started_at = @replay_started_at = Time.current
       index = 0
-      sleep 10
-      return
       QueryLogParser.parse(@file) do |entry|
         index += 1
         @current_phase_first_timestamp = @replay_first_timestamp = entry.hi_res_timestamp if index == 1
