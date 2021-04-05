@@ -21,8 +21,8 @@ module MysqlReplayer
   PEAK = 1
   POST_PEAK = 2
   MUTATING_OPERATIONS = %w[prepare create call update insert delete].to_set.freeze
-  READER_THREADS = 200
-  WRITER_THREADS = 200
+  READER_THREADS = 300
+  WRITER_THREADS = 100
 
   class Executor
     def initialize(file:, database_url:, read_replicas:, start_time: Time.at(0), end_time:Time.current, skip_to: nil)
