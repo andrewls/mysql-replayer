@@ -22,7 +22,22 @@ Or install it yourself as:
 
 ## Usage
 
-TODO: Write usage instructions here
+There are a number of steps involved in actually replaying a DB here, so we'll go ahead and go through them all one at a time.
+
+To download the logs from S3 to a local logs folder:
+`aws s3 cp s3://mu-mysql-logs/march/mutual-production ./logs --recursive`
+To then unzip all those files in parallel (assuming you're in the same directory as the files):
+`ls | parallel "gzip -d {}"`
+To merge all the individual files into one massive file:
+`cat * > logs-unsorted.txt`
+To sort that file (this is _very_ resource intensive so beware):
+`sort --parallel 16 -S 90% logs-unsorted.txt > logs.txt`
+To remove any lines in the file that are malformatted:
+`cat logs.txt | grep '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z' -P > logs-groomed.txt`
+
+If you're feeling adventurous, you _can_ chain all of these commands together. However, doing so can really screw over your sort performance (sort seems to perform drastically better when given a file than a pipe, for some reason). It does have the advantage that you can run it and come back 5 hours later to a finished file, though, rather than having to babysit the script.
+`cat * | ruby join-multi-line-logs.rb | grep '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z' -P | sort --parallel 8 -S 90% > logs.txt`
+
 
 ## Development
 

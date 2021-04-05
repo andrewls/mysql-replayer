@@ -86,6 +86,11 @@ class Parser
         parsed_args[:skip_to] = skip_to
       end
 
+      opts.on('-r', '--read-only READ_ONLY_ENDPOINT_URLS', 'A comma separated (but NOT space separated!) list of fully qualified URLs representing read-only endpoints to use for SELECT queries') do |db_url_string|
+        db_urls = db_url_string.split(',')
+        parsed_args[:read_replicas] = db_urls
+      end
+
       opts.on("-h", "--help", "Prints this help") do
         puts opts
         exit
@@ -107,14 +112,15 @@ args[:end] ||= Time.current
 # Check if the file exists
 raise "The log file you supplied (#{args[:file]}) does not exist!" unless File.exist?(args[:file])
 
-print "You are about to replay log file #{args[:file]} from #{args[:start].iso8601} to #{args[:end].iso8601} against the database at #{args[:db_url]}. Proceed? (y/n) "
-# puts('Aborting') or exit unless STDIN.gets.chomp.downcase.include?('y')
+print "You are about to replay log file #{args[:file]} from #{args[:start].iso8601} to #{args[:end].iso8601} against the database at #{args[:db_url]} with read replicas #{args[:read_replicas]}. Proceed? (y/n) "
+puts('Aborting') or exit unless STDIN.gets.chomp.downcase.include?('y')
 
 puts "Launching replayer..."
 
 MysqlReplayer::Executor.new(
   file: args[:file],
   database_url: args[:db_url],
+  read_replicas: args[:read_replicas] || [args[:db_urls]],
   start_time: args[:start],
   end_time: args[:end],
   skip_to: args[:skip_to]

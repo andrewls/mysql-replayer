@@ -9,7 +9,7 @@ require_relative 'prepared_statement_cache'
 
 Thread.abort_on_exception = true
 
-MYSQL_URL_REGEX = /(?<scheme>\w+):\/\/(?<username>[a-zA-Z]+):(?<password>\w+)@(?<host>[a-zA-Z0-9\.\-]+):(?<port>\d+)\/(?<database>[a-zA-Z_]+)/
+MYSQL_URL_REGEX = /(?<scheme>\w+):\/\/(?<username>[a-zA-Z]+):(?<password>\w+)@(?<host>[a-zA-Z0-9\.\-]+):(?<port>\d+)\/(?<database>[a-zA-Z_0-9]+)/
 
 # Constraints on how queries can be run
 # In pre-run mode, we just run all update operations in parallel
@@ -21,33 +21,48 @@ module MysqlReplayer
   PEAK = 1
   POST_PEAK = 2
   MUTATING_OPERATIONS = %w[prepare create call update insert delete].to_set.freeze
-  MYSQL_THREADS = 200
+  READER_THREADS = 200
+  WRITER_THREADS = 200
 
   class Executor
-    def initialize(file:, database_url:, start_time: Time.at(0), end_time:Time.current, skip_to: nil)
+    def initialize(file:, database_url:, read_replicas:, start_time: Time.at(0), end_time:Time.current, skip_to: nil)
       @file = file
       @database_url = database_url
+      @read_replicas = read_replicas
+      puts "Database URL: #{@database_url}"
+      puts "Read Replicas: #{@read_replicas}"
       @start_time = start_time
       @end_time = end_time
       @skip_to = skip_to
       @phase = PRE_PEAK
       @threads = []
       @db_mutex = Mutex.new
+      @replica_mutex = Mutex.new
       @general_queue = Queue.new
       @logger_queue = Queue.new
-      MYSQL_THREADS.times do
+      # Implement a quick circular buffer for these threads to use
+      # in determining which replica URL to connect to
+      replica_index = 0
+      replica_index_mutex = Mutex.new
+      READER_THREADS.times do
         # These threads will go ahead and process all the select queries. In
         # this way we can be pretty confident that we won't run into problems
         # with inoptimal parallelism. Each of the threads can run all their
         # own weird one-off stuff and the selects can be split evenly among
         # the first thread to get to them.
         @threads << Thread.new do
-          db = self.database.connection
-          # Ensure that the db client is connected early
-          db.query('SELECT 1')
+          # Grab the next replica
+          replica_index_mutex.synchronize do
+            host = self.replicas[replica_index % self.replicas.count]
+            puts "Reader thread #{Thread.current.object_id} connecting to DB #{host.url}"
+            db = host.connection
+            # Ensure that the db client is connected early
+            db.query('SELECT 1')
+          end
           while (entry = @general_queue.pop).present?
             self.process_query_from_entry(entry, db)
           end
+          replica_index += 1
         end
       end
 
@@ -65,6 +80,14 @@ module MysqlReplayer
             logs.write(Oj.dump(metric))
             logs.write("\n")
           end
+        end
+      end
+    end
+
+    def replicas
+      @replica_mutex.synchronize do
+        @replicas ||= @read_replicas.map do |replica_url|
+          Database.new(url: replica_url)
         end
       end
     end
@@ -139,7 +162,7 @@ module MysqlReplayer
 
     def queue_for_thread(thread_id)
       @queues ||= Hash.new { |h, k| h[k] = self.spawn_new_thread(thread_id) }
-      @queues[thread_id % MYSQL_THREADS]
+      @queues[thread_id % WRITER_THREADS]
     end
 
     def execute_entry(entry)
@@ -184,6 +207,8 @@ module MysqlReplayer
     def replay
       @current_phase_started_at = @replay_started_at = Time.current
       index = 0
+      sleep 10
+      return
       QueryLogParser.parse(@file) do |entry|
         index += 1
         @current_phase_first_timestamp = @replay_first_timestamp = entry.hi_res_timestamp if index == 1
@@ -197,9 +222,9 @@ module MysqlReplayer
         end
         self.handle_entry(entry)
       end
-      # This queue at least we can clean up
+      # Clean up the queues
       @logger_queue << nil
-      MYSQL_THREADS.times { @general_queue << nil }
+      READER_THREADS.times { @general_queue << nil }
       @queues&.values&.each { |q| q << nil }
       @threads.each(&:join)
     end

@@ -4,6 +4,7 @@ require 'mysql2'
 
 module MysqlReplayer
   class Database
+    attr_reader :url
     def initialize(url:)
       @url = url
       @mutex = Mutex.new
