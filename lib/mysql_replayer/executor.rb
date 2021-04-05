@@ -52,6 +52,7 @@ module MysqlReplayer
         # the first thread to get to them.
         @threads << Thread.new do
           # Grab the next replica
+          db = nil
           replica_index_mutex.synchronize do
             host = self.replicas[replica_index % self.replicas.count]
             puts "Reader thread #{Thread.current.object_id} connecting to DB #{host.url}"
