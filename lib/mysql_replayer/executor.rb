@@ -59,11 +59,11 @@ module MysqlReplayer
             db = host.connection
             # Ensure that the db client is connected early
             db.query('SELECT 1')
+            replica_index += 1
           end
           while (entry = @general_queue.pop).present?
             self.process_query_from_entry(entry, db)
           end
-          replica_index += 1
         end
       end
 

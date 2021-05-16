@@ -10,11 +10,11 @@ if len(sys.argv) < 3:
     print("Usage: python3 process_metrics.py <FILE_NAME> <BIN_SIZE_IN_SECONDS>")
     sys.exit()
 
-print("Opening file %s" % sys.argv[1])
+print("Opening file %s" % sys.argv[1], file = sys.stderr)
 TOTAL_LINES = int(os.popen('cat %s | wc -l' % sys.argv[1]).read())
-print("File is %d lines in total" % TOTAL_LINES)
+print("File is %d lines in total" % TOTAL_LINES, file = sys.stderr)
 BIN_SIZE = int(sys.argv[2])
-print("Bin size is %d seconds" % BIN_SIZE)
+print("Bin size is %d seconds" % BIN_SIZE, file = sys.stderr)
 
 metrics = {}
 
@@ -44,15 +44,15 @@ def update_average_metric(metrics, metric_name, bin, metric_bin_name):
 
 def process_bin(bin_index, dict):
     bin = dict.get(bin_index, None)
-    print("Checking if we should process bin %r" % bin_index)
+    print("Checking if we should process bin %r" % bin_index, file = sys.stderr)
     if bin and not bin['processed']:
-        print("Processing bin %r" % bin_index)
+        print("Processing bin %r" % bin_index, file = sys.stderr)
         # aggregate all the data points for each metric
-        print("Keys I'm processing: %r" % bin.keys())
+        print("Keys I'm processing: %r" % bin.keys(), file = sys.stderr)
         for metric in bin.keys():
             if metric == 'processed' or metric == 'operation' or metric == 'action' or metric == 'tps':
                 continue
-            print("\tProcessing metric %s" % metric)
+            print("\tProcessing metric %s" % metric, file = sys.stderr)
             data = bin[metric]['data_points']
             # And now we need to compute 95th and 99th percentile
             p95, p99 = numpy.percentile(data, [95, 99])
@@ -70,7 +70,7 @@ with open(sys.argv[1]) as f:
     while line:
         lines += 1
         if lines % 10_000 == 0:
-            print("Processing line %d of %d" % (lines, TOTAL_LINES))
+            print("Processing line %d of %d" % (lines, TOTAL_LINES), file = sys.stderr)
         metric = json.loads(line)
 
         # First order of business is to go ahead and determine what bin this
@@ -112,5 +112,6 @@ with open(sys.argv[1]) as f:
     process_bin(current_maximum_bin - BIN_SIZE, metrics)
     process_bin(current_maximum_bin, metrics)
 
-    print("Total lines: %d" % lines)
-    print("Metric totals: \n%r" % metrics)
+    print("Total lines: %d" % lines, file = sys.stderr)
+    print("Metric totals: %r" % metrics, file = sys.stderr)
+    print("%r" % metrics)
